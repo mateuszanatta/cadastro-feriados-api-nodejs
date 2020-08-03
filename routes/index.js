@@ -55,6 +55,7 @@ router.put('/feriados/:id/:data', async function(req, res) {
   var data_semano;
   var tipo_feriado = 0;
   var select  = ';'
+  var messageCode =  200;
 
   var nome_feriado = req.query.name == null ? req.body.name : req.query.name;
 
@@ -75,31 +76,34 @@ router.put('/feriados/:id/:data', async function(req, res) {
       data_semano = data;
     }
   }else{
-    var dataFeriadoVariavel = calculaFeriadoVariavel(data);
-    data_semano = dataFeriadoVariavel[1];
+    var ano = new Date().getFullYear();
+    var dataFeriadoVariavel;
+    data_semano = new Array();
+    var i;
+    for(i = 0; i < 2; i++){
+      dataFeriadoVariavel = calculaFeriadoVariavel(data, parseInt(ano+i));
+      data_semano.push( dataFeriadoVariavel[1]);
+    }
     nome_feriado = dataFeriadoVariavel[0];
+
+    if(nome_feriado == ''){
+      res.status(404).send();
+    }
   }
 
-
   try{
-    const { rows } = await pgsql.query('select cod_feriados from feriados where (data_feriado = $1 and (cod_cidade = $2 or cod_estado = $3)) limit 1', [data_semano, cod_cidade, cod_estado]);
-
-    if(rows.toString() == ''){
-
-      const sqlInsert = 'insert into feriados(nome_feriado, tipo_feriado, data_feriado, cod_cidade, cod_estado) values($1, $2, $3, $4, $5)';
-      const valuesInsert = [nome_feriado, tipo_feriado, data_semano, cod_cidade, cod_estado];
-
-      await pgsql.query(sqlInsert, valuesInsert);
-      pgsql.query('COMMIT');
-      res.status(200).send();
+    if(Array.isArray(data_semano) && data_semano.length > 0){
+      data_semano.forEach((val) => {
+         insertFeriados(val, nome_feriado, tipo_feriado, cod_cidade, cod_estado)
+                                    .then((val) => {messageCode = val});
+      })
     }else{
-      const sqlUpdate = 'update feriados set nome_feriado = $1 where cod_feriados = $2';
-      const valuesUpdate = [nome_feriado, rows[0].cod_feriados];
-
-      await pgsql.query(sqlUpdate, valuesUpdate);
-      pgsql.query('COMMIT');
-      res.status(201).send();
+      insertFeriados(data_semano, nome_feriado, tipo_feriado, cod_cidade, cod_estado)
+                                  .then((val) => {messageCode = val});
     }
+    // console.log({messageCode: messageCode});
+    res.status(messageCode).send();
+
   }catch(e){
     pgsql.query('ROLLBACK');
     throw e
@@ -132,8 +136,9 @@ router.delete('/feriados/:id/:data', async function(req, res) {
       data_semano = data;
     }
   }else{
+    data_semano = new Array();
     var dataFeriadoVariavel = calculaFeriadoVariavel(data);
-    data_semano = dataFeriadoVariavel[1];
+    data_semano.push(dataFeriadoVariavel[1]);
     nome_feriado = dataFeriadoVariavel[0];
   }
 
@@ -165,8 +170,8 @@ router.delete('/feriados/:id/:data', async function(req, res) {
 });
 
 
-const calculaDataPascoa = () =>{
-  const ANO = new Date().getFullYear();
+const calculaDataPascoa = (ano) =>{
+  const ANO = ano;
 
   var a = ANO % 19;
   var b = parseInt(ANO / 100);
@@ -186,13 +191,14 @@ const calculaDataPascoa = () =>{
   return String(ANO) + '-' + String(MES) + '-' + String(DIA);
 }
 
-const calculaFeriadoVariavel = (data) =>{
-  var dataPascoa = calculaDataPascoa();
+const calculaFeriadoVariavel = (data, ano) =>{
+  var dataPascoa = calculaDataPascoa(ano);
   var pascoa = new Date(dataPascoa);
   var dataAux;
   var nome_feriado = '';
   var dia;
   var mes;
+  var data_semano = '';
 
 
   if(data.toLowerCase() == 'corpus-christi'){
@@ -225,6 +231,29 @@ const calculaFeriadoVariavel = (data) =>{
   }
 
   return [nome_feriado, data_semano];
+}
+
+const insertFeriados = async (data_semano, nome_feriado, tipo_feriado, cod_cidade, cod_estado) => {
+  const { rows } = await pgsql.query('select cod_feriados from feriados where (data_feriado = $1 and (cod_cidade = $2 or cod_estado = $3)) limit 1', [data_semano, cod_cidade, cod_estado]);
+
+  if(rows.toString() == ''){
+
+    const sqlInsert = 'insert into feriados(nome_feriado, tipo_feriado, data_feriado, cod_cidade, cod_estado) values($1, $2, $3, $4, $5)';
+    const valuesInsert = [nome_feriado, tipo_feriado, data_semano, cod_cidade, cod_estado];
+
+    await pgsql.query(sqlInsert, valuesInsert);
+    pgsql.query('COMMIT');
+    // res.status(200).send();
+    return 200;
+  }else{
+    const sqlUpdate = 'update feriados set nome_feriado = $1 where cod_feriados = $2';
+    const valuesUpdate = [nome_feriado, rows[0].cod_feriados];
+
+    await pgsql.query(sqlUpdate, valuesUpdate);
+    pgsql.query('COMMIT');
+    // res.status(201).send();
+    return 201;
+  }
 }
 
 module.exports = router;

@@ -106,7 +106,6 @@ router.put('/feriados/:id/:data', async function(req, res) {
 
   }catch(e){
     pgsql.query('ROLLBACK');
-    throw e
     res.status(404).send();
   }
 

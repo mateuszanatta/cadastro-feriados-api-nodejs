@@ -36,11 +36,12 @@ router.get('/feriados/:id/:data', async function(req, res) {
         values = [data_semano, cod_estado];
 
     }
+  
+
+    const { rows } = await pgsql.query(select, values);
   }catch(ex){
     res.status(404).send();
   }
-
-  const { rows } = await pgsql.query(select, values);
 
   if(rows.toString() == ''){
     res.status(404).send();

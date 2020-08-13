@@ -21,20 +21,23 @@ router.get('/feriados/:id/:data', async function(req, res) {
   }else{
     data_semano = data;
   }
+  try{
+    if(id.length > 2){
+        cod_cidade = id;
+        cod_estado = id.substring(0,2);
+        tipo_feriado = 2;
+        select = 'select nome_feriado from feriados where (data_feriado = $1 and (case when tipo_feriado = 0 then true else (cod_cidade = $2 or cod_estado = $3) end)) limit 1';
+        values = [data_semano, cod_cidade, cod_estado];
+    }else{
+        cod_estado = id;
+        cod_cidade = null;
+        tipo_feriado = 1;
+        select = 'select nome_feriado from feriados where (data_feriado = $1 and (case when tipo_feriado = 0 then true else cod_estado = $2 end)) limit 1';
+        values = [data_semano, cod_estado];
 
-  if(id.length > 2){
-      cod_cidade = id;
-      cod_estado = id.substring(0,2);
-      tipo_feriado = 2;
-      select = 'select nome_feriado from feriados where (data_feriado = $1 and (case when tipo_feriado = 0 then true else (cod_cidade = $2 or cod_estado = $3) end)) limit 1';
-      values = [data_semano, cod_cidade, cod_estado];
-  }else{
-      cod_estado = id;
-      cod_cidade = null;
-      tipo_feriado = 1;
-      select = 'select nome_feriado from feriados where (data_feriado = $1 and (case when tipo_feriado = 0 then true else cod_estado = $2 end)) limit 1';
-      values = [data_semano, cod_estado];
-
+    }
+  }catch(ex){
+    res.status(404).send();
   }
 
   const { rows } = await pgsql.query(select, values);

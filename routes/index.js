@@ -39,15 +39,15 @@ router.get('/feriados/:id/:data', async function(req, res) {
   
 
     const { rows } = await pgsql.query(select, values);
+    
+    if(rows.toString() == ''){
+      res.status(404).send();
+    }else{
+      var feriado_nacional = rows[0].nome_feriado
+      res.send({name: feriado_nacional});
+    }
   }catch(ex){
     res.status(404).send();
-  }
-
-  if(rows.toString() == ''){
-    res.status(404).send();
-  }else{
-    var feriado_nacional = rows[0].nome_feriado
-    res.send({name: feriado_nacional});
   }
 
 });
@@ -140,13 +140,14 @@ router.delete('/feriados/:id/:data', async function(req, res) {
     }
   }else{
     data_semano = new Array();
-    var dataFeriadoVariavel = calculaFeriadoVariavel(data);
-    data_semano.push(dataFeriadoVariavel[1]);
+    var ano = new Date().getFullYear();
+    var dataFeriadoVariavel = calculaFeriadoVariavel(data, ano);
+    data_semano = dataFeriadoVariavel[1];
     nome_feriado = dataFeriadoVariavel[0];
   }
 
   try{
-
+    console.log(dataFeriadoVariavel);
     const { rows } = await pgsql.query('select cod_feriados, tipo_feriado from feriados where (data_feriado = $1 and (cod_cidade = $2 or cod_estado = $3)) or (data_feriado = $1 and (cod_cidade is null or cod_estado is null)) limit 1', [data_semano, cod_cidade, cod_estado]);
 
     if(rows.toString() == ''){
